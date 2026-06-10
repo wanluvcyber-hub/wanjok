@@ -1,5 +1,6 @@
 import { supabase } from "../supabase";
 import { Database } from "../database.types";
+import { DEFAULT_CATEGORIES } from "../constants/categories";
 
 export type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 export type Category = Database["public"]["Tables"]["categories"]["Row"];
@@ -78,6 +79,23 @@ export async function getCategories() {
     console.error("Error fetching categories:", error);
     return [];
   }
+
+  // Auto-seed: If no categories found, insert defaults automatically
+  if (!data || data.length === 0) {
+    console.log("No categories found, auto-seeding default categories...");
+    const { data: seededData, error: seedError } = await supabase
+      .from("categories")
+      .insert(DEFAULT_CATEGORIES)
+      .select()
+      .order("name");
+
+    if (seedError) {
+      console.error("Error auto-seeding categories:", seedError);
+      return [];
+    }
+    return seededData || [];
+  }
+
   return data;
 }
 
