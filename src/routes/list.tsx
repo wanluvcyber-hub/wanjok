@@ -1,26 +1,30 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageShell } from "@/components/PageShell";
-import { transactions, fmtBahtShort, thaiDate } from "@/lib/mockData";
+import { fmtBahtShort, thaiDate } from "@/lib/utils";
 import { Calendar, Download, ListChecks, RefreshCcw, Plus, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
+import { getTransactionsList } from "@/lib/api/finance.functions";
+import { useLoaderData } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/list")({
   head: () => ({ meta: [{ title: "รายการ – Wanjot" }, { name: "description", content: "รายการรายรับรายจ่ายทั้งหมด" }] }),
+  loader: async () => await getTransactionsList(),
   component: ListPage,
 });
 
 function ListPage() {
-  const [filter, setFilter] = useState<"all" | "expense" | "income">("all");
+  const transactions = useLoaderData({ from: "/list" });
+  const [filter, setFilter] = useState<"all" | "รายจ่าย" | "รายรับ">("all");
 
   const filtered = useMemo(() => {
     if (filter === "all") return transactions;
-    return transactions.filter((t) => (filter === "expense" ? t.amount < 0 : t.amount > 0));
-  }, [filter]);
+    return transactions.filter((t) => t.type === filter);
+  }, [filter, transactions]);
 
   const grouped = useMemo(() => {
     const m = new Map<string, typeof filtered>();
     for (const t of filtered) {
-      const k = t.date;
+      const k = t.transacted_at.split('T')[0];
       if (!m.has(k)) m.set(k, []);
       m.get(k)!.push(t);
     }
@@ -29,15 +33,17 @@ function ListPage() {
 
   const tabs: { id: typeof filter; label: string }[] = [
     { id: "all", label: "ทั้งหมด" },
-    { id: "expense", label: "รายจ่าย" },
-    { id: "income", label: "รายรับ" },
+    { id: "รายจ่าย", label: "รายจ่าย" },
+    { id: "รายรับ", label: "รายรับ" },
   ];
 
   return (
     <PageShell title="รายการ">
       <section className="paper-card flex items-center justify-center gap-2 p-4 text-cocoa">
         <Calendar className="h-5 w-5" />
-        <span className="font-display text-base font-semibold">1 มิ.ย. 2569 — 30 มิ.ย. 2569</span>
+        <span className="font-display text-base font-semibold">
+          {new Date().toLocaleDateString('th-TH', { month: 'short', year: 'numeric' })}
+        </span>
       </section>
 
       <section className="paper-card flex items-center gap-3 p-4">
@@ -74,7 +80,7 @@ function ListPage() {
       </div>
 
       {grouped.map(([date, items]) => {
-        const sum = items.reduce((s, t) => s + t.amount, 0);
+        const sum = items.reduce((s, t) => s + (t.type === 'รายจ่าย' ? -t.amount : t.amount), 0);
         return (
           <section key={date} className="space-y-2">
             <div className="flex items-center justify-between border-b border-border px-1 pb-1.5 text-sm">
@@ -85,18 +91,36 @@ function ListPage() {
             </div>
             <ul className="space-y-2">
               {items.map((t) => (
-                <li key={t.id} className="paper-card flex items-center gap-3 p-3.5">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-cocoa">{t.title}</div>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{t.time} น.</span>
-                      <span className="rounded-md bg-muted px-1.5 py-0.5">{t.category}</span>
+                <li key={t.id}>
+                  <Link
+                    to="/edit/$id"
+                    params={{ id: t.id }}
+                    className="paper-card flex items-center gap-3 p-3.5 active:scale-[0.98] transition-transform"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-cocoa">
+                        {t.note || (t.categories as any)?.name || t.type || "ไม่มีชื่อ"}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>
+                          {new Date(t.transacted_at).toLocaleTimeString("th-TH", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}{" "}
+                          น.
+                        </span>
+                        <span className="rounded-md bg-muted px-1.5 py-0.5">
+                          {(t.categories as any)?.name || t.type || "ทั่วไป"}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className={`font-display text-base font-bold ${t.amount < 0 ? "text-primary" : "text-mint-foreground"}`}>
-                    {fmtBahtShort(t.amount)}
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <div
+                      className={`font-display text-base font-bold ${t.type === "รายจ่าย" ? "text-primary" : "text-mint-foreground"}`}
+                    >
+                      {fmtBahtShort(t.type === "รายจ่าย" ? -t.amount : t.amount)}
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -104,12 +128,13 @@ function ListPage() {
         );
       })}
 
-      <button
+      <Link
+        to="/add"
         aria-label="เพิ่มรายการ"
         className="fixed bottom-24 right-5 z-30 rounded-full bg-primary p-4 text-primary-foreground shadow-pop"
       >
         <Plus className="h-6 w-6" strokeWidth={2.6} />
-      </button>
+      </Link>
     </PageShell>
   );
 }
