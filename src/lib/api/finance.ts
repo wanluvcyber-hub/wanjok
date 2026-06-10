@@ -15,51 +15,19 @@ let cachedUser: User | null = null;
 export async function getUserProfile(userId = DEFAULT_USER_ID) {
   if (cachedUser) return cachedUser;
 
-  try {
-    let { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
+  const { data, error } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
 
-    // Auto-seed: If default user not found, create it
-    if (!data && !error && userId === DEFAULT_USER_ID) {
-      console.log("Default user not found, creating...");
-      const { data: newUser, error: createError } = await supabase
-        .from("users")
-        .insert({
-          id: userId,
-          line_user_id: "default_user",
-          display_name: "ผู้ใช้งานเริ่มต้น"
-        })
-        .select()
-        .single();
-      
-      if (!createError) data = newUser;
-    }
-
-    // Fallback to the most recent user if still not found
-    if (!data && !error) {
-      const { data: latestUser } = await supabase
-        .from("users")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      data = latestUser;
-    }
-
-    if (error) {
-      console.error("Error fetching user profile:", error);
-      return null;
-    }
-    
-    cachedUser = data;
-    return data;
-  } catch (err) {
-    console.error("Critical error in getUserProfile:", err);
+  if (error) {
+    console.error("Error fetching user profile:", error);
     return null;
   }
+  
+  cachedUser = data;
+  return data;
 }
 
 export async function getTransactions(limit = 10, startDate?: string, endDate?: string) {
@@ -91,35 +59,16 @@ export async function getTransactions(limit = 10, startDate?: string, endDate?: 
 }
 
 export async function getCategories() {
-  try {
-    const { data, error } = await supabase
-      .from("categories")
-      .select("*")
-      .order("name");
+  const { data, error } = await supabase
+    .from("categories")
+    .select("*")
+    .order("name");
 
-    if (!error && data && data.length > 0) {
-      return data;
-    }
-
-    // Auto-seed: If no categories found, try to insert defaults
-    console.log("No categories found in DB, attempting to seed...");
-    const { data: seededData, error: seedError } = await supabase
-      .from("categories")
-      .upsert(DEFAULT_CATEGORIES) // Use upsert to avoid conflicts with fixed IDs
-      .select();
-
-    if (!seedError && seededData && seededData.length > 0) {
-      return seededData;
-    }
-
-    // Final fallback: If DB is empty and seeding failed (e.g. RLS issues), 
-    // return constants so the UI still works.
-    console.warn("Seeding failed or returned empty, using constants as fallback.");
-    return DEFAULT_CATEGORIES as Category[];
-  } catch (err) {
-    console.error("Critical error in getCategories:", err);
-    return DEFAULT_CATEGORIES as Category[];
+  if (error) {
+    console.error("Error fetching categories:", error);
+    return [];
   }
+  return data;
 }
 
 export async function getBudgets() {
