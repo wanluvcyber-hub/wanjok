@@ -16,7 +16,7 @@ export const Route = createFileRoute("/add")({
 });
 
 function AddTransactionPage() {
-  const { categories } = Route.useLoaderData();
+  const { categories, userProfile } = Route.useLoaderData();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   
@@ -43,16 +43,16 @@ function AddTransactionPage() {
       return;
     }
 
+    if (!userProfile?.id) {
+      toast.error("ไม่พบข้อมูลผู้ใช้งาน กรุณาลองใหม่อีกครั้ง");
+      return;
+    }
+
     setLoading(true);
     try {
-      // For now, using a dummy user_id since we don't have auth setup yet.
-      // In a real app, this would come from the session.
-      // The user needs to provide a valid user_id or I should handle it.
-      // For setup purposes, I'll assume there's a user or it will fail with a clear error.
-      
       await createTransaction({
         data: {
-          user_id: "a1b2c3d4-0000-0000-0000-000000000001", // Default seeded user
+          user_id: userProfile.id,
           amount: parseFloat(formData.amount),
           type: formData.type,
           category_id: formData.category_id,

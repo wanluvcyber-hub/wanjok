@@ -15,30 +15,51 @@ let cachedUser: User | null = null;
 export async function getUserProfile(userId = DEFAULT_USER_ID) {
   if (cachedUser) return cachedUser;
 
-  let { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .eq("id", userId)
-    .maybeSingle();
-
-  // Fallback to the most recent user if default not found
-  if (!data && !error) {
-    const { data: latestUser } = await supabase
+  try {
+    let { data, error } = await supabase
       .from("users")
       .select("*")
-      .order("created_at", { ascending: false })
-      .limit(1)
+      .eq("id", userId)
       .maybeSingle();
-    data = latestUser;
-  }
 
-  if (error) {
-    console.error("Error fetching user profile:", error);
+    // Auto-seed: If default user not found, create it
+    if (!data && !error && userId === DEFAULT_USER_ID) {
+      console.log("Default user not found, creating...");
+      const { data: newUser, error: createError } = await supabase
+        .from("users")
+        .insert({
+          id: userId,
+          line_user_id: "default_user",
+          display_name: "ผู้ใช้งานเริ่มต้น"
+        })
+        .select()
+        .single();
+      
+      if (!createError) data = newUser;
+    }
+
+    // Fallback to the most recent user if still not found
+    if (!data && !error) {
+      const { data: latestUser } = await supabase
+        .from("users")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      data = latestUser;
+    }
+
+    if (error) {
+      console.error("Error fetching user profile:", error);
+      return null;
+    }
+    
+    cachedUser = data;
+    return data;
+  } catch (err) {
+    console.error("Critical error in getUserProfile:", err);
     return null;
   }
-  
-  cachedUser = data;
-  return data;
 }
 
 export async function getTransactions(limit = 10, startDate?: string, endDate?: string) {
