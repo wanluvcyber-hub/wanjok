@@ -1,9 +1,9 @@
 export const DEFAULT_CATEGORIES = [
-  { name: "อาหารและเครื่องดื่ม", icon: "🍱", type: "รายจ่าย", is_default: true },
-  { name: "การเดินทาง", icon: "🚗", type: "รายจ่าย", is_default: true },
-  { name: "ช้อปปิ้ง", icon: "🛍️", type: "รายจ่าย", is_default: true },
-  { name: "ที่อยู่อาศัย", icon: "🏠", type: "รายจ่าย", is_default: true },
-  { name: "เงินเดือน", icon: "💰", type: "รายรับ", is_default: true },
-  { name: "โบนัส", icon: "🎁", type: "รายรับ", is_default: true },
-  { name: "อื่นๆ", icon: "✨", type: "รายจ่าย", is_default: true },
+  { id: "00000000-0000-0000-0000-000000000001", name: "อาหารและเครื่องดื่ม", icon: "🍱", type: "รายจ่าย", is_default: true },
+  { id: "00000000-0000-0000-0000-000000000002", name: "การเดินทาง", icon: "🚗", type: "รายจ่าย", is_default: true },
+  { id: "00000000-0000-0000-0000-000000000003", name: "ช้อปปิ้ง", icon: "🛍️", type: "รายจ่าย", is_default: true },
+  { id: "00000000-0000-0000-0000-000000000004", name: "ที่อยู่อาศัย", icon: "🏠", type: "รายจ่าย", is_default: true },
+  { id: "00000000-0000-0000-0000-000000000005", name: "เงินเดือน", icon: "💰", type: "รายรับ", is_default: true },
+  { id: "00000000-0000-0000-0000-000000000006", name: "โบนัส", icon: "🎁", type: "รายรับ", is_default: true },
+  { id: "00000000-0000-0000-0000-000000000007", name: "อื่นๆ", icon: "✨", type: "รายจ่าย", is_default: true },
 ];

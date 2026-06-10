@@ -70,33 +70,35 @@ export async function getTransactions(limit = 10, startDate?: string, endDate?: 
 }
 
 export async function getCategories() {
-  const { data, error } = await supabase
-    .from("categories")
-    .select("*")
-    .order("name");
-
-  if (error) {
-    console.error("Error fetching categories:", error);
-    return [];
-  }
-
-  // Auto-seed: If no categories found, insert defaults automatically
-  if (!data || data.length === 0) {
-    console.log("No categories found, auto-seeding default categories...");
-    const { data: seededData, error: seedError } = await supabase
+  try {
+    const { data, error } = await supabase
       .from("categories")
-      .insert(DEFAULT_CATEGORIES)
-      .select()
+      .select("*")
       .order("name");
 
-    if (seedError) {
-      console.error("Error auto-seeding categories:", seedError);
-      return [];
+    if (!error && data && data.length > 0) {
+      return data;
     }
-    return seededData || [];
-  }
 
-  return data;
+    // Auto-seed: If no categories found, try to insert defaults
+    console.log("No categories found in DB, attempting to seed...");
+    const { data: seededData, error: seedError } = await supabase
+      .from("categories")
+      .upsert(DEFAULT_CATEGORIES) // Use upsert to avoid conflicts with fixed IDs
+      .select();
+
+    if (!seedError && seededData && seededData.length > 0) {
+      return seededData;
+    }
+
+    // Final fallback: If DB is empty and seeding failed (e.g. RLS issues), 
+    // return constants so the UI still works.
+    console.warn("Seeding failed or returned empty, using constants as fallback.");
+    return DEFAULT_CATEGORIES as Category[];
+  } catch (err) {
+    console.error("Critical error in getCategories:", err);
+    return DEFAULT_CATEGORIES as Category[];
+  }
 }
 
 export async function getBudgets() {
