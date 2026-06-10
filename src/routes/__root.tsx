@@ -9,7 +9,6 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import liff from "@line/liff";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -124,8 +123,10 @@ function RootComponent() {
   useEffect(() => {
     const initLiff = async () => {
       try {
+        // Dynamic import to avoid SSR issues
+        const { default: liff } = await import("@line/liff");
+
         // LIFF ID should be in env or provided by user
-        // Using a placeholder; user should replace this in Vercel env
         const liffId = import.meta.env.VITE_LIFF_ID || "";
         if (!liffId) {
           console.warn("LIFF ID is missing. Profile fetching will be skipped.");
