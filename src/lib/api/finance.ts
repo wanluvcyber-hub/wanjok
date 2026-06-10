@@ -12,41 +12,39 @@ const DEFAULT_USER_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 // Simple request-level cache (simulated since this runs per server function execution)
 let cachedUser: User | null = null;
 
-export async function getUserProfile(userId = DEFAULT_USER_ID) {
-  if (cachedUser) return cachedUser;
+export async function getUserProfile() {
+  // 1. Try to get real LINE userId from sessionStorage (set by LIFF in __root.tsx)
+  const lineUserId = typeof window !== 'undefined' ? sessionStorage.getItem("line_user_id") : null;
+  const lineDisplayName = typeof window !== 'undefined' ? sessionStorage.getItem("line_display_name") : null;
+  const linePictureUrl = typeof window !== 'undefined' ? sessionStorage.getItem("line_picture_url") : null;
+  
+  // Use real LINE ID if available, otherwise fallback to default for testing
+  const targetUserId = lineUserId || DEFAULT_USER_ID;
+
+  if (cachedUser && cachedUser.id === targetUserId) return cachedUser;
 
   try {
     let { data, error } = await supabase
       .from("users")
       .select("*")
-      .eq("id", userId)
+      .eq("id", targetUserId)
       .maybeSingle();
 
-    // Auto-seed: If default user not found, create it
-    if (!data && !error && userId === DEFAULT_USER_ID) {
-      console.log("Default user not found, creating...");
+    // Auto-seed: If user not found, create them using LINE profile info
+    if (!data && !error) {
+      console.log(`User ${targetUserId} not found, creating profile...`);
       const { data: newUser, error: createError } = await supabase
         .from("users")
         .insert({
-          id: userId,
-          line_user_id: "default_user",
-          display_name: "ผู้ใช้งานเริ่มต้น"
+          id: targetUserId,
+          line_user_id: targetUserId === DEFAULT_USER_ID ? "default_user" : targetUserId,
+          display_name: lineDisplayName || (targetUserId === DEFAULT_USER_ID ? "ผู้ใช้งานเริ่มต้น" : "LINE User"),
+          avatar_url: linePictureUrl || null
         })
         .select()
         .single();
       
       if (!createError) data = newUser;
-    }
-
-    // Fallback to the most recent user if still not found
-    if (!data && !error) {
-      const { data: latestUser } = await supabase
-        .from("users")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      data = latestUser;
     }
 
     if (error) {

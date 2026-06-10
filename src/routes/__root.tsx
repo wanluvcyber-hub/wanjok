@@ -8,7 +8,8 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import liff from "@line/liff";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -118,11 +119,54 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [isLiffReady, setIsLiffReady] = useState(false);
+
+  useEffect(() => {
+    const initLiff = async () => {
+      try {
+        // LIFF ID should be in env or provided by user
+        // Using a placeholder; user should replace this in Vercel env
+        const liffId = import.meta.env.VITE_LIFF_ID || "";
+        if (!liffId) {
+          console.warn("LIFF ID is missing. Profile fetching will be skipped.");
+          setIsLiffReady(true);
+          return;
+        }
+
+        await liff.init({ liffId });
+        if (!liff.isLoggedIn()) {
+          liff.login();
+        } else {
+          const profile = await liff.getProfile();
+          // Store LINE userId in session storage for the API to pick up
+          sessionStorage.setItem("line_user_id", profile.userId);
+          sessionStorage.setItem("line_display_name", profile.displayName);
+          sessionStorage.setItem("line_picture_url", profile.pictureUrl || "");
+          setIsLiffReady(true);
+        }
+      } catch (error) {
+        console.error("LIFF Initialization failed", error);
+        setIsLiffReady(true);
+      }
+    };
+
+    initLiff();
+  }, []);
+
+  if (!isLiffReady && import.meta.env.VITE_LIFF_ID) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#fbf6ee]">
+        <div className="text-center animate-pulse">
+          <div className="text-4xl mb-4">🍱</div>
+          <p className="font-display text-cocoa">กำลังเตรียมตัวจด...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
       </QueryClientProvider>
     </ThemeProvider>
