@@ -8,7 +8,12 @@ export type User = Database["public"]["Tables"]["users"]["Row"];
 
 const DEFAULT_USER_ID = "a1b2c3d4-0000-0000-0000-000000000001";
 
+// Simple request-level cache (simulated since this runs per server function execution)
+let cachedUser: User | null = null;
+
 export async function getUserProfile(userId = DEFAULT_USER_ID) {
+  if (cachedUser) return cachedUser;
+
   let { data, error } = await supabase
     .from("users")
     .select("*")
@@ -26,14 +31,18 @@ export async function getUserProfile(userId = DEFAULT_USER_ID) {
     data = latestUser;
   }
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error fetching user profile:", error);
+    return null;
+  }
+  
+  cachedUser = data;
   return data;
 }
 
 export async function getTransactions(limit = 10, startDate?: string, endDate?: string) {
-  // Try to find the user first to use their ID for transactions
   const user = await getUserProfile();
-  const userId = user?.id || DEFAULT_USER_ID;
+  if (!user) return [];
 
   let query = supabase
     .from("transactions")
@@ -44,7 +53,7 @@ export async function getTransactions(limit = 10, startDate?: string, endDate?: 
         icon
       )
     `)
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .order("transacted_at", { ascending: false });
     
   if (startDate) query = query.gte("transacted_at", startDate);
@@ -52,7 +61,10 @@ export async function getTransactions(limit = 10, startDate?: string, endDate?: 
   if (limit) query = query.limit(limit);
 
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    console.error("Error fetching transactions:", error);
+    return [];
+  }
   return data;
 }
 
@@ -62,30 +74,40 @@ export async function getCategories() {
     .select("*")
     .order("name");
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error fetching categories:", error);
+    return [];
+  }
   return data;
 }
 
 export async function getBudgets() {
   const user = await getUserProfile();
-  const userId = user?.id || DEFAULT_USER_ID;
+  if (!user) return [];
 
   const { data, error } = await supabase
     .from("budgets")
     .select("*")
-    .eq("user_id", userId);
-  if (error) throw error;
+    .eq("user_id", user.id);
+  if (error) {
+    console.error("Error fetching budgets:", error);
+    return [];
+  }
   return data;
 }
 
 export async function getCategorySpending(startDate?: string, endDate?: string) {
-  const user = await getUserProfile();
-  const userId = user?.id || DEFAULT_USER_ID;
+  // To avoid circular or redundant calls, we fetch dependencies directly
+  const [user, categories] = await Promise.all([
+    getUserProfile(),
+    getCategories()
+  ]);
 
-  // To support custom date ranges, we bypass the fixed view and calculate locally
-  const [transactions, categories, budgets] = await Promise.all([
+  if (!user) return [];
+  const userId = user.id;
+
+  const [transactions, budgets] = await Promise.all([
     getTransactions(1000, startDate, endDate),
-    getCategories(),
     getBudgets()
   ]);
 
